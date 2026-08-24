@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plot Area Calculator</title>
+<style>
+  :root{
+    --paper:#faf9f6;
+    --ink:#20241f;
+    --ink-soft:#5b6158;
+    --line:#d8d6cd;
+    --accent:#2f5d4f;
+    --accent-soft:#e4ede9;
+    --warn:#9a4b2f;
+    --warn-bg:#f7ece5;
+    --grid:#e4e2d8;
+    --grid-strong:#c7c4b6;
+    --radius:3px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    font-size:15px;
+  }
+  header{
+    padding:22px 28px 18px;
+    border-bottom:1px solid var(--line);
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:20px;
+    flex-wrap:wrap;
+  }
+  header h1{
+    font-size:25px;
+    margin:0 0 4px;
+    letter-spacing:.01em;
+    font-weight:600;
+  }
+  header p{
+    margin:0;
+    font-size:16px;
+    color:var(--ink-soft);
+    max-width:52ch;
+  }
+  .angle-toggle-wrap{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:16px;
+    white-space:nowrap;
+  }
+  main.layout{
+    display:grid;
+    grid-template-columns:1.2fr 0.8fr;
+    min-height:calc(100vh - 88px);
+  }
+  @media (max-width:900px){
+    main.layout{grid-template-columns:1fr;}
+    .form-panel{order:1; border-right:none; border-bottom:1px solid var(--line);}
+    .plot-panel{order:2;}
+  }
+  .plot-panel{
+    padding:24px;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+    overflow-x:auto;
+  }
+  .form-panel{
+    padding:24px;
+    border-left:1px solid var(--line);
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+  }
+
+  .plot-frame{
+    display:grid;
+    grid-template-columns:28px 560px;
+    grid-template-rows:28px 420px;
+    width:588px;
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    background:#fffefb;
+    user-select:none;
+  }
+  .corner{background:#f1efe8;border-right:1px solid var(--line);border-bottom:1px solid var(--line);}
+  .ruler-top{border-bottom:1px solid var(--line);overflow:hidden;}
+  .ruler-left{border-right:1px solid var(--line);overflow:hidden;}
+  .plot-main{overflow:hidden;position:relative;}
+  .plot-main svg{cursor:grab;}
+  .plot-main.panning svg{cursor:grabbing;}
+  .plot-frame svg{display:block;width:100%;height:100%;}
+
+  .tick-label{font-size:11px;fill:var(--ink-soft);font-family:"SF Mono",Menlo,Consolas,monospace;}
+  .grid-line{stroke:var(--grid);stroke-width:1;}
+  .axis-line{stroke:var(--grid-strong);stroke-width:1;}
+
+  .zoom-controls{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:14px;
+    color:var(--ink-soft);
+  }
+  .zoom-controls button{
+    padding:6px 12px;
+    font-size:14px;
+  }
+  #zoomLabel{font-family:"SF Mono",Menlo,Consolas,monospace;min-width:50px;}
+
+  .results{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+    width:588px;
+  }
+  .result-card{
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:12px 14px;
+    background:#fffefb;
+  }
+  .result-card .label{
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    color:var(--ink-soft);
+    margin-bottom:6px;
+  }
+  .result-card .value-row{
+    display:flex;
+    align-items:baseline;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  .result-card .value{
+    font-family:"SF Mono",Menlo,Consolas,monospace;
+    font-size:28px;
+    font-weight:600;
+    color:var(--accent);
+  }
+  select, input[type=number], input[type=text]{
+    font-family:inherit;
+    font-size:15px;
+    padding:7px 9px;
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    background:#fff;
+    color:var(--ink);
+  }
+  select:focus, input:focus{
+    outline:2px solid var(--accent);
+    outline-offset:1px;
+  }
+  .warning{
+    border:1px solid var(--warn);
+    background:var(--warn-bg);
+    color:var(--warn);
+    padding:10px 12px;
+    border-radius:var(--radius);
+    font-size:15px;
+    width:588px;
+  }
+  .hidden{display:none !important;}
+  .field-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .field-row label{font-size:15px;color:var(--ink-soft);}
+  .field-row input[type=number]{width:80px;}
+  .field-row select{width:170px;}
+  .section-title{
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:.07em;
+    color:var(--ink-soft);
+    border-bottom:1px solid var(--line);
+    padding-bottom:6px;
+    margin-top:4px;
+  }
+  #sidesList{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    max-height:46vh;
+    overflow-y:auto;
+    padding-right:4px;
+  }
+  .side-row{
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:10px 12px;
+    background:#fffefb;
+  }
+  .side-row .side-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    margin-bottom:8px;
+  }
+  .side-row .side-head span{
+    font-size:14px;
+    font-weight:600;
+    color:var(--ink);
+    font-family:"SF Mono",Menlo,Consolas,monospace;
+  }
+  .side-row input[type=number]{width:100%;}
+  .side-row .len-input-wrap{margin-bottom:8px;}
+  .side-row .len-input-wrap label{
+    display:block;
+    font-size:13px;
+    color:var(--ink-soft);
+    margin-bottom:3px;
+  }
+  .corner-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .corner-label{
+    font-size:13px;
+    color:var(--ink-soft);
+    flex:1;
+    min-width:140px;
+  }
+  .switch{
+    position:relative;
+    width:36px;
+    height:20px;
+    flex:none;
+  }
+  .switch input{opacity:0;width:0;height:0;position:absolute;}
+  .switch .track{
+    position:absolute;inset:0;
+    background:#cfcdc3;
+    border-radius:999px;
+    transition:.15s;
+    cursor:pointer;
+  }
+  .switch .track::before{
+    content:"";
+    position:absolute;
+    height:16px;width:16px;
+    left:2px;top:2px;
+    background:#fff;
+    border-radius:50%;
+    transition:.15s;
+    box-shadow:0 1px 2px rgba(0,0,0,.25);
+  }
+  .switch input:checked + .track{background:var(--accent);}
+  .switch input:checked + .track::before{transform:translateX(16px);}
+  .angle-input{
+    width:84px;
+    font-size:15px;
+  }
+  .angle-field{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:13px;
+    color:var(--ink-soft);
+  }
+  #anglesList{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    max-height:38vh;
+    overflow-y:auto;
+    padding-right:4px;
+  }
+  .angle-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:10px 12px;
+    background:#fffefb;
+  }
+  .angle-row-label{
+    font-size:15px;
+    color:var(--ink);
+    font-family:"SF Mono",Menlo,Consolas,monospace;
+    font-weight:600;
+  }
+  button{
+    font-family:inherit;
+    font-size:15px;
+    padding:10px 16px;
+    background:var(--accent);
+    color:#fff;
+    border:none;
+    border-radius:var(--radius);
+    cursor:pointer;
+  }
+  button.ghost{
+    background:transparent;
+    color:var(--accent);
+    border:1px solid var(--accent);
+  }
+  button:disabled{
+    opacity:.35;
+    cursor:default;
+  }
+  .btn-row{display:flex;gap:10px;flex-wrap:wrap;}
+  .hint{
+    font-size:13px;
+    color:var(--ink-soft);
+    line-height:1.5;
+    width:588px;
+  }
+  .vertex-dot{fill:var(--accent);cursor:grab;}
+  .vertex-dot:active{cursor:grabbing;}
+  .poly-fill{fill:var(--accent-soft);}
+  .poly-stroke{stroke:var(--accent);stroke-width:2;fill:none;}
+  .side-text{font-size:13px;fill:var(--ink-soft);font-family:"SF Mono",Menlo,Consolas,monospace;}
+  .vertex-label{font-size:15px;font-weight:700;fill:var(--ink);}
+  .angle-text{font-size:13px;fill:var(--accent);font-family:"SF Mono",Menlo,Consolas,monospace;}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Plot Area Calculator</h1>
+    <p>Enter the side lengths of your plot to see it plotted with area and perimeter. Toggle a corner "inward" for L-shaped or irregular boundaries. Add angles if you have survey data for an exact shape. Drag a node to explore the shape without changing any side length.</p>
+  </div>
+  <div class="angle-toggle-wrap">
+    <label class="switch">
+      <input type="checkbox" id="angleModeToggle">
+      <span class="track"></span>
+    </label>
+    <span>Enable angles</span>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="plot-panel">
+    <div class="plot-frame">
+      <div class="corner"></div>
+      <div class="ruler-top"><svg id="rulerTopSvg" viewBox="0 0 560 28"></svg></div>
+      <div class="ruler-left"><svg id="rulerLeftSvg" viewBox="0 0 28 420"></svg></div>
+      <div class="plot-main" id="plotMain"><svg id="plotSvg" viewBox="0 0 560 420"></svg></div>
+    </div>
+
+    <div class="zoom-controls">
+      <button id="zoomOutBtn" class="ghost">Zoom out −</button>
+      <button id="zoomInBtn" class="ghost">Zoom in +</button>
+      <span id="zoomLabel">1.0×</span>
+      <button id="resetViewBtn" class="ghost">Reset view</button>
+      <button id="resetShapeBtn" class="ghost">Reset shape</button>
+    </div>
+
+    <div id="warning" class="warning hidden"></div>
+
+    <div class="results">
+      <div class="result-card">
+        <div class="label">Perimeter</div>
+        <div class="value-row">
+          <span class="value" id="perimVal">–</span>
+          <select id="perimUnit"></select>
+        </div>
+      </div>
+      <div class="result-card">
+        <div class="label">Area</div>
+        <div class="value-row">
+          <span class="value" id="areaVal">–</span>
+          <select id="areaUnit"></select>
+        </div>
+      </div>
+    </div>
+
+    <div class="hint">Drag a labeled node to flex the shape — side lengths AB, BC… stay fixed. Scroll, pinch, or use the buttons to zoom out (up to 5×); drag empty space to pan. α, β, γ… mark the interior angle at each vertex.</div>
+  </section>
+
+  <section class="form-panel">
+    <div class="field-row">
+      <label>Number of sides (3–10)</label>
+      <input type="number" id="numSides" min="3" max="10" value="6">
+    </div>
+    <div class="field-row">
+      <label>Unit for lengths entered below</label>
+      <select id="lengthUnit"></select>
+    </div>
+
+    <div class="section-title">Sides &amp; corners</div>
+    <div id="sidesList"></div>
+
+    <div class="hint" id="angleHint">Toggle a corner's switch on if the boundary turns into the plot there (like the inner corner of an "L"). Leave off for an ordinary outward corner.</div>
+
+    <div class="section-title hidden" id="anglesSectionTitle">Angles</div>
+    <div id="anglesList"></div>
+
+    <div class="btn-row">
+      <button id="resetBtn" class="ghost">Load example (L-shape)</button>
+    </div>
+  </section>
+</main>
+
+<script>
+(function(){
+  "use strict";
+
+  const VERTEX_LETTERS = ["A","B","C","D","E","F","G","H","I","J"];
+  const ANGLE_GREEK = ["α","β","γ","δ","ε","ζ","η","θ","ι","κ"];
+
+  const LENGTH_UNITS = [
+    ["m","Meters (m)",1],
+    ["cm","Centimeters (cm)",0.01],
+    ["mm","Millimeters (mm)",0.001],
+    ["km","Kilometers (km)",1000],
+    ["ft","Feet (ft)",0.3048],
+    ["in","Inches (in)",0.0254],
+    ["yd","Yards (yd)",0.9144],
+    ["mi","Miles (mi)",1609.344],
+  ];
+  const AREA_UNITS = [
+    ["sqm","Sq. Meters (m²)",1],
+    ["sqft","Sq. Feet (ft²)",0.09290304],
+    ["sqyd","Sq. Yards (yd²)",0.83612736],
+    ["sqin","Sq. Inches (in²)",0.00064516],
+    ["sqkm","Sq. Kilometers (km²)",1000000],
+    ["sqmi","Sq. Miles (mi²)",2589988.110336],
+    ["acre","Acre",4046.8564224],
+    ["hectare","Hectare",10000],
+    ["cent","Cent",40.4685642],
+    ["ground","Ground (Chennai, 2400 sqft)",222.96706],
+  ];
+
+  const $ = (id) => document.getElementById(id);
+  const numSidesEl = $("numSides");
+  const lengthUnitEl = $("lengthUnit");
+  const perimUnitEl = $("perimUnit");
+  const areaUnitEl = $("areaUnit");
+  const angleModeToggle = $("angleModeToggle");
+  const sidesListEl = $("sidesList");
+  const warningEl = $("warning");
+  const svg = $("plotSvg");
+  const rulerTopSvg = $("rulerTopSvg");
+  const rulerLeftSvg = $("rulerLeftSvg");
+  const plotMain = $("plotMain");
+  const zoomLabel = $("zoomLabel");
+  const zoomOutBtn = $("zoomOutBtn");
+  const zoomInBtn = $("zoomInBtn");
+
+  function fillSelect(el, list, defaultKey){
+    el.innerHTML = "";
+    list.forEach(([key,label]) => {
+      const opt = document.createElement("option");
+      opt.value = key; opt.textContent = label;
+      if (key === defaultKey) opt.selected = true;
+      el.appendChild(opt);
+    });
+  }
+  fillSelect(lengthUnitEl, LENGTH_UNITS, "m");
+  fillSelect(perimUnitEl, LENGTH_UNITS, "m");
+  fillSelect(areaUnitEl, AREA_UNITS, "sqft");
+
+  // ---- state ----
+  let state = {
+    n: 6,
+    lengthUnit: "m",
+    angleMode: false,
+    sides: [
+      {length:10, concave:false, angle:null},
+      {length:4,  concave:false, angle:null},
+      {length:6,  concave:true,  angle:null},
+      {length:4,  concave:false, angle:null},
+      {length:4,  concave:false, angle:null},
+      {length:8,  concave:false, angle:null},
+    ]
+  };
+  let lastResult = null;       // {perimeter_m}
+  let customVerts = null;      // array of [x,y] in meters, draggable copy of the solved shape
+  let baseScale = 1;           // px per meter at zoom = 1 (fit)
+  let baseCenter = [0,0];      // world-space center of the shape's bounding box
+  let zoomLevel = 1;           // 1 (fit) .. 5 (zoomed out)
+  let panWorld = [0,0];        // extra world-space pan offset
+
+  const MAIN_W = 560, MAIN_H = 420, PAD = 46;
+
+  function factorLen(key){ const u = LENGTH_UNITS.find(u=>u[0]===key); return u ? u[2] : 1; }
+  function factorArea(key){ const u = AREA_UNITS.find(u=>u[0]===key); return u ? u[2] : 1; }
+
+  // ---- geometry solver ----
+  // phi[k] = turn angle (radians) at the corner ending side k (0-indexed),
+  // i.e. the corner between side k and side k+1 -> lands on vertex (k+1)%n.
+  function solvePolygon(lengths_m, sides){
+    const n = lengths_m.length;
+    const phi = new Array(n);
+    const fixed = new Array(n).fill(false);
+    for (let i=0;i<n;i++){
+      const s = sides[i];
+      if (s.angle !== null && s.angle !== undefined && s.angle !== "" && !isNaN(s.angle)){
+        phi[i] = (180 - Number(s.angle)) * Math.PI/180;
+        fixed[i] = true; // user-specified angle: solver must not move this one
+      } else {
+        const sign = s.concave ? -1 : 1;
+        phi[i] = sign * (360/n) * Math.PI/180;
+      }
+    }
+    const freeIdx = [];
+    for (let i=0;i<n;i++) if (!fixed[i]) freeIdx.push(i);
+    const L = lengths_m;
+
+    function residualAndJ(phi){
+      const d = new Array(n); d[0]=0;
+      for(let i=1;i<n;i++) d[i]=d[i-1]+phi[i-1];
+      let Px=0, Py=0;
+      const cosd=new Array(n), sind=new Array(n);
+      for(let k=0;k<n;k++){ cosd[k]=Math.cos(d[k]); sind[k]=Math.sin(d[k]); Px+=L[k]*cosd[k]; Py+=L[k]*sind[k]; }
+      const sumPhi = phi.reduce((a,b)=>a+b,0);
+      const F=[Px,Py, sumPhi - 2*Math.PI];
+      const sx=new Array(n+1).fill(0), sy=new Array(n+1).fill(0);
+      for(let k=n-1;k>=0;k--){ sx[k]=sx[k+1]+L[k]*sind[k]; sy[k]=sy[k+1]+L[k]*cosd[k]; }
+      const J=[[],[],[]];
+      for(let j=0;j<n;j++){
+        J[0][j] = -sx[j+1];
+        J[1][j] = sy[j+1];
+        J[2][j] = 1;
+      }
+      return {F,J};
+    }
+    function mat3inv(A){
+      const [a,b,c]=A[0], [d,e,f]=A[1], [g,h,i]=A[2];
+      const det = a*(e*i-f*h) - b*(d*i-f*g) + c*(d*h-e*g);
+      if (Math.abs(det) < 1e-14) return null;
+      const invdet = 1/det;
+      return [
+        [ (e*i-f*h)*invdet, (c*h-b*i)*invdet, (b*f-c*e)*invdet],
+        [ (f*g-d*i)*invdet, (a*i-c*g)*invdet, (c*d-a*f)*invdet],
+        [ (d*h-e*g)*invdet, (b*g-a*h)*invdet, (a*e-b*d)*invdet]
+      ];
+    }
+    let converged=false, lastNormF = Infinity;
+    if (freeIdx.length === 0){
+      // every corner angle is user-fixed: nothing to solve, just check closure
+      const {F} = residualAndJ(phi);
+      lastNormF = Math.sqrt(F[0]*F[0]+F[1]*F[1]+F[2]*F[2]);
+      converged = lastNormF < 1e-6;
+    } else {
+      for (let iter=0; iter<400; iter++){
+        const {F,J} = residualAndJ(phi);
+        const normF = Math.sqrt(F[0]*F[0]+F[1]*F[1]+F[2]*F[2]);
+        lastNormF = normF;
+        if (normF < 1e-8){ converged=true; break; }
+        const eps = 1e-9;
+        const JJt = [[0,0,0],[0,0,0],[0,0,0]];
+        for(let r=0;r<3;r++) for(let c=0;c<3;c++){
+          let s=0; for(const j of freeIdx) s+=J[r][j]*J[c][j];
+          JJt[r][c]=s + (r===c?eps:0);
+        }
+        const inv = mat3inv(JJt);
+        if(!inv) break;
+        const y=[0,0,0];
+        for(let r=0;r<3;r++){ let s=0; for(let c=0;c<3;c++) s+=inv[r][c]*F[c]; y[r]=s; }
+        let maxAbsDelta = 0;
+        for(const j of freeIdx){
+          let s=0; for(let r=0;r<3;r++) s+=J[r][j]*y[r];
+          const dj = -s;
+          phi[j]+=dj;
+          if (Math.abs(dj) > maxAbsDelta) maxAbsDelta = Math.abs(dj);
+        }
+        if (maxAbsDelta < 1e-12) break;
+      }
+    }
+    const d=new Array(n); d[0]=0;
+    for(let i=1;i<n;i++) d[i]=d[i-1]+phi[i-1];
+    const verts=[[0,0]];
+    for(let k=0;k<n;k++){
+      const prev=verts[verts.length-1];
+      verts.push([prev[0]+L[k]*Math.cos(d[k]), prev[1]+L[k]*Math.sin(d[k])]);
+    }
+    verts.pop();
+    return { verts, phi, converged, residual: lastNormF };
+  }
+
+  function shoelaceArea(verts){
+    let s=0; const n=verts.length;
+    for(let i=0;i<n;i++){
+      const [x1,y1]=verts[i], [x2,y2]=verts[(i+1)%n];
+      s += x1*y2 - x2*y1;
+    }
+    return Math.abs(s)/2;
+  }
+
+  function interiorAngleDeg(verts, i){
+    const n = verts.length;
+    const prev = verts[(i-1+n)%n], cur = verts[i], next = verts[(i+1)%n];
+    const ein = [cur[0]-prev[0], cur[1]-prev[1]];
+    const eout = [next[0]-cur[0], next[1]-cur[1]];
+    const cross = ein[0]*eout[1]-ein[1]*eout[0];
+    const dot = ein[0]*eout[0]+ein[1]*eout[1];
+    const ext = Math.atan2(cross,dot)*180/Math.PI;
+    return 180 - ext;
+  }
+
+  // ---- UI: build side rows ----
+  function buildSideRows(){
+    sidesListEl.innerHTML = "";
+    for (let i=0;i<state.n;i++){
+      if (!state.sides[i]) state.sides[i] = {length:5, concave:false, angle:null};
+      const s = state.sides[i];
+      const row = document.createElement("div");
+      row.className = "side-row";
+
+      const a1 = VERTEX_LETTERS[i], a2 = VERTEX_LETTERS[(i+1)%state.n];
+      const cornerVertexIdx = (i+1)%state.n;
+      const cornerLetter = VERTEX_LETTERS[cornerVertexIdx];
+      const cornerGreek = ANGLE_GREEK[cornerVertexIdx];
+
+      const head = document.createElement("div");
+      head.className = "side-head";
+      head.innerHTML = `<span>Side ${a1}${a2}</span>`;
+      row.appendChild(head);
+
+      const lenWrap = document.createElement("div");
+      lenWrap.className = "len-input-wrap";
+      lenWrap.innerHTML = `<label>Length (${state.lengthUnit})</label>`;
+      const lenInput = document.createElement("input");
+      lenInput.type = "number";
+      lenInput.min = "0";
+      lenInput.step = "any";
+      lenInput.value = s.length;
+      lenInput.addEventListener("input", () => {
+        state.sides[i].length = parseFloat(lenInput.value);
+        recompute();
+      });
+      lenWrap.appendChild(lenInput);
+      row.appendChild(lenWrap);
+
+      const cornerRow = document.createElement("div");
+      cornerRow.className = "corner-row";
+
+      const label = document.createElement("span");
+      label.className = "corner-label";
+      label.textContent = `Corner at vertex ${cornerLetter} (${cornerGreek}): turns inward`;
+      cornerRow.appendChild(label);
+
+      const switchWrap = document.createElement("label");
+      switchWrap.className = "switch";
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = !!s.concave;
+      cb.addEventListener("change", () => {
+        state.sides[i].concave = cb.checked;
+        recompute();
+      });
+      const track = document.createElement("span");
+      track.className = "track";
+      switchWrap.appendChild(cb);
+      switchWrap.appendChild(track);
+      cornerRow.appendChild(switchWrap);
+      row.appendChild(cornerRow);
+
+      sidesListEl.appendChild(row);
+    }
+  }
+
+  // ---- UI: build angle rows (separate "Angles" section) ----
+  function buildAngleRows(){
+    const titleEl = $("anglesSectionTitle");
+    const listEl = $("anglesList");
+    listEl.innerHTML = "";
+    if (!state.angleMode){
+      titleEl.classList.add("hidden");
+      listEl.classList.add("hidden");
+      return;
+    }
+    titleEl.classList.remove("hidden");
+    listEl.classList.remove("hidden");
+
+    const n = state.n;
+    for (let v=0; v<n; v++){
+      // the interior angle at vertex v is stored on state.sides[i].angle,
+      // where i is the side that *ends* at vertex v.
+      const i = (v-1+n)%n;
+      if (!state.sides[i]) state.sides[i] = {length:5, concave:false, angle:null};
+      const s = state.sides[i];
+
+      const prevL = VERTEX_LETTERS[(v-1+n)%n];
+      const curL = VERTEX_LETTERS[v];
+      const nextL = VERTEX_LETTERS[(v+1)%n];
+
+      const row = document.createElement("div");
+      row.className = "angle-row";
+
+      const label = document.createElement("span");
+      label.className = "angle-row-label";
+      label.innerHTML = `${ANGLE_GREEK[v]} = &ang;${prevL}${curL}${nextL}`;
+      row.appendChild(label);
+
+      const angleInput = document.createElement("input");
+      angleInput.type = "number";
+      angleInput.className = "angle-input";
+      angleInput.min = "0";
+      angleInput.max = "360";
+      angleInput.step = "any";
+      angleInput.placeholder = "optional";
+      angleInput.value = s.angle === null || s.angle === undefined ? "" : s.angle;
+      angleInput.addEventListener("input", () => {
+        state.sides[i].angle = angleInput.value === "" ? null : parseFloat(angleInput.value);
+        recompute();
+      });
+      row.appendChild(angleInput);
+
+      listEl.appendChild(row);
+    }
+  }
+
+  // ---- world <-> screen transform ----
+  function currentScale(){ return baseScale / zoomLevel; }
+  function worldToScreen(x,y){
+    const s = currentScale();
+    const cx = baseCenter[0] + panWorld[0];
+    const cy = baseCenter[1] + panWorld[1];
+    return [ MAIN_W/2 + (x-cx)*s, MAIN_H/2 - (y-cy)*s ];
+  }
+  function screenToWorld(sx,sy){
+    const s = currentScale();
+    const cx = baseCenter[0] + panWorld[0];
+    const cy = baseCenter[1] + panWorld[1];
+    return [ (sx-MAIN_W/2)/s + cx, -(sy-MAIN_H/2)/s + cy ];
+  }
+
+  function niceStep(raw){
+    if (raw <= 0 || !isFinite(raw)) return 1;
+    const exp = Math.floor(Math.log10(raw));
+    const base = raw / Math.pow(10,exp);
+    let niceBase;
+    if (base < 1.5) niceBase=1; else if (base<3.5) niceBase=2; else if (base<7.5) niceBase=5; else niceBase=10;
+    return niceBase * Math.pow(10,exp);
+  }
+
+  // ---- rendering ----
+  function computeFit(verts){
+    const xs = verts.map(p=>p[0]), ys = verts.map(p=>p[1]);
+    const minX=Math.min(...xs), maxX=Math.max(...xs);
+    const minY=Math.min(...ys), maxY=Math.max(...ys);
+    const w = Math.max(maxX-minX, 1e-6), h = Math.max(maxY-minY, 1e-6);
+    baseScale = Math.min((MAIN_W-2*PAD)/w, (MAIN_H-2*PAD)/h);
+    baseCenter = [(minX+maxX)/2, (minY+maxY)/2];
+  }
+
+  function renderGridAndRulers(){
+    const s = currentScale();
+    const stepPx = 60;
+    const stepWorld = niceStep(stepPx/s);
+    const unitFactor = factorLen(state.lengthUnit);
+
+    const [wxMin] = screenToWorld(0,0);
+    const [wxMax] = screenToWorld(MAIN_W,0);
+    const [,wyMax] = screenToWorld(0,0);
+    const [,wyMin] = screenToWorld(0,MAIN_H);
+
+    let gridInner = "";
+    let topInner = "";
+    let leftInner = "";
+
+    const startX = Math.floor(wxMin/stepWorld)*stepWorld;
+    for (let x=startX; x<=wxMax+stepWorld; x+=stepWorld){
+      const [sx] = worldToScreen(x,0);
+      if (sx < -1 || sx > MAIN_W+1) continue;
+      const isAxis = Math.abs(x) < stepWorld/1000;
+      gridInner += `<line class="${isAxis?'axis-line':'grid-line'}" x1="${sx.toFixed(1)}" y1="0" x2="${sx.toFixed(1)}" y2="${MAIN_H}"></line>`;
+      const labelVal = (x/unitFactor);
+      topInner += `<text class="tick-label" x="${sx.toFixed(1)}" y="18" text-anchor="middle">${fmtTick(labelVal)}</text>`;
+    }
+    const startY = Math.floor(wyMin/stepWorld)*stepWorld;
+    for (let y=startY; y<=wyMax+stepWorld; y+=stepWorld){
+      const [,sy] = worldToScreen(0,y);
+      if (sy < -1 || sy > MAIN_H+1) continue;
+      const isAxis = Math.abs(y) < stepWorld/1000;
+      gridInner += `<line class="${isAxis?'axis-line':'grid-line'}" x1="0" y1="${sy.toFixed(1)}" x2="${MAIN_W}" y2="${sy.toFixed(1)}"></line>`;
+      const labelVal = (y/unitFactor);
+      leftInner += `<text class="tick-label" x="22" y="${(sy+3).toFixed(1)}" text-anchor="end">${fmtTick(labelVal)}</text>`;
+    }
+
+    rulerTopSvg.innerHTML = topInner;
+    rulerLeftSvg.innerHTML = leftInner;
+    return gridInner;
+  }
+
+  function fmtTick(v){
+    if (Math.abs(v) < 1e-9) return "0";
+    return v.toLocaleString(undefined,{maximumFractionDigits:2});
+  }
+
+  function renderPlot(){
+    if (!customVerts || customVerts.length < 3){
+      svg.innerHTML = "";
+      rulerTopSvg.innerHTML = "";
+      rulerLeftSvg.innerHTML = "";
+      return;
+    }
+    const n = customVerts.length;
+    const gridSvg = renderGridAndRulers();
+
+    const screenPts = customVerts.map(([x,y]) => worldToScreen(x,y));
+    const pathD = screenPts.map((p,i)=> (i===0?"M":"L") + p[0].toFixed(2) + "," + p[1].toFixed(2)).join(" ") + " Z";
+
+    let inner = gridSvg;
+    inner += `<path class="poly-fill" d="${pathD}"></path>`;
+    inner += `<path class="poly-stroke" d="${pathD}"></path>`;
+
+    // centroid for label offset direction
+    let cx=0, cy=0;
+    customVerts.forEach(p=>{cx+=p[0];cy+=p[1];});
+    cx/=n; cy/=n;
+    const [ccx,ccy] = worldToScreen(cx,cy);
+
+    for (let i=0;i<n;i++){
+      const [ax,ay] = screenPts[i];
+      const [bx,by] = screenPts[(i+1)%n];
+      const mx=(ax+bx)/2, my=(ay+by)/2;
+      const dx=bx-ax, dy=by-ay;
+      const len=Math.hypot(dx,dy)||1;
+      let nx=-dy/len, ny=dx/len;
+      // push label away from centroid
+      const towardCenter = (ccx-mx)*nx + (ccy-my)*ny;
+      if (towardCenter > 0){ nx=-nx; ny=-ny; }
+      const codeLabel = VERTEX_LETTERS[i]+VERTEX_LETTERS[(i+1)%n];
+      const lenLabel = state.sides[i] && state.sides[i].length!=null ? Number(state.sides[i].length).toString()+" "+state.lengthUnit : "";
+      inner += `<text class="side-text" x="${(mx+nx*16).toFixed(2)}" y="${(my+ny*16).toFixed(2)}" text-anchor="middle">${codeLabel} · ${lenLabel}</text>`;
+    }
+
+    for (let i=0;i<n;i++){
+      const [x,y] = screenPts[i];
+      let vx = x-ccx, vy = y-ccy;
+      const vlen = Math.hypot(vx,vy)||1;
+      vx/=vlen; vy/=vlen;
+      // vertex letter, offset outward
+      inner += `<text class="vertex-label" x="${(x+vx*16).toFixed(2)}" y="${(y+vy*16).toFixed(2)}" text-anchor="middle">${VERTEX_LETTERS[i]}</text>`;
+      // angle greek + value, offset inward
+      const angDeg = interiorAngleDeg(customVerts, i);
+      inner += `<text class="angle-text" x="${(x-vx*20).toFixed(2)}" y="${(y-vy*20).toFixed(2)}" text-anchor="middle">${ANGLE_GREEK[i]} ${angDeg.toFixed(0)}°</text>`;
+    }
+
+    screenPts.forEach(([x,y], i) => {
+      inner += `<circle class="vertex-dot" data-idx="${i}" cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="5"></circle>`;
+    });
+
+    svg.innerHTML = inner;
+  }
+
+  function fmt(n){
+    if (!isFinite(n)) return "–";
+    if (Math.abs(n) >= 1000) return n.toLocaleString(undefined,{maximumFractionDigits:2});
+    return n.toLocaleString(undefined,{maximumFractionDigits:3});
+  }
+
+  function updateResultsDisplay(){
+    if (!lastResult || !customVerts){
+      $("perimVal").textContent = "–";
+      $("areaVal").textContent = "–";
+      return;
+    }
+    const pFactor = factorLen(perimUnitEl.value);
+    const aFactor = factorArea(areaUnitEl.value);
+    const area_m2 = shoelaceArea(customVerts);
+    $("perimVal").textContent = fmt(lastResult.perimeter_m / pFactor);
+    $("areaVal").textContent = fmt(area_m2 / aFactor);
+  }
+
+  function showWarning(msg){
+    if (!msg){ warningEl.classList.add("hidden"); warningEl.textContent=""; return; }
+    warningEl.classList.remove("hidden");
+    warningEl.textContent = msg;
+  }
+
+  function updateZoomUI(){
+    zoomLabel.textContent = zoomLevel.toFixed(1) + "×";
+    zoomInBtn.disabled = zoomLevel <= 1.0001;
+    zoomOutBtn.disabled = zoomLevel >= 5 - 0.0001;
+  }
+
+  function recompute(){
+    const n = state.n;
+    const lenFactor = factorLen(state.lengthUnit);
+    const lengths_m = [];
+    let valid = true;
+    for (let i=0;i<n;i++){
+      const L = state.sides[i] ? state.sides[i].length : NaN;
+      if (!(L > 0)) { valid = false; }
+      lengths_m.push((L||0) * lenFactor);
+    }
+    if (!valid){
+      showWarning("Enter a positive length for every side.");
+      lastResult = null;
+      customVerts = null;
+      renderPlot();
+      updateResultsDisplay();
+      return;
+    }
+    if (n === 3){
+      const [a,b,c] = lengths_m;
+      if (a+b<=c || a+c<=b || b+c<=a){
+        showWarning("These three side lengths can't form a closed triangle (one side is too long compared to the other two).");
+        lastResult = null;
+        customVerts = null;
+        renderPlot();
+        updateResultsDisplay();
+        return;
+      }
+    }
+
+    const result = solvePolygon(lengths_m, state.sides.slice(0,n));
+    if (!result.converged){
+      showWarning("Couldn't quite close this shape with the given values — showing the closest fit. Try adjusting a length, a corner switch, or entering angles for precision.");
+    } else {
+      showWarning(null);
+    }
+    const perimeter_m = lengths_m.reduce((a,b)=>a+b,0);
+    lastResult = { perimeter_m };
+    customVerts = result.verts.map(p=>p.slice());
+    computeFit(customVerts);
+    zoomLevel = 1;
+    panWorld = [0,0];
+    updateZoomUI();
+    renderPlot();
+    updateResultsDisplay();
+  }
+
+  // ---- node dragging (side lengths preserved via circle-circle intersection) ----
+  let dragIdx = null;
+  let isPanning = false;
+  let panStartScreen = null;
+  let panStartWorld = null;
+
+  function sideLenMeters(i){
+    // length of side i (between vertex i and vertex i+1), from current input state, in meters
+    const L = state.sides[i] ? state.sides[i].length : 0;
+    return (L||0) * factorLen(state.lengthUnit);
+  }
+
+  function dragVertexTo(idx, targetWorld){
+    const n = customVerts.length;
+    const prevIdx = (idx-1+n)%n, nextIdx = (idx+1)%n;
+    const P1 = customVerts[prevIdx], P2 = customVerts[nextIdx];
+    const r1 = sideLenMeters(prevIdx);   // side prevIdx connects prevIdx -> idx
+    const r2 = sideLenMeters(idx);       // side idx connects idx -> nextIdx
+    const dx = P2[0]-P1[0], dy = P2[1]-P1[1];
+    const d = Math.hypot(dx,dy);
+    if (d < 1e-9 || d > r1+r2 || d < Math.abs(r1-r2)){
+      return; // no valid circle intersection; ignore this drag step
+    }
+    const a = (r1*r1 - r2*r2 + d*d) / (2*d);
+    const hsq = r1*r1 - a*a;
+    const h = Math.sqrt(Math.max(hsq,0));
+    const midx = P1[0] + a*dx/d, midy = P1[1] + a*dy/d;
+    const perpx = -dy/d, perpy = dx/d;
+    const cand1 = [midx+h*perpx, midy+h*perpy];
+    const cand2 = [midx-h*perpx, midy-h*perpy];
+    const d1 = Math.hypot(cand1[0]-targetWorld[0], cand1[1]-targetWorld[1]);
+    const d2 = Math.hypot(cand2[0]-targetWorld[0], cand2[1]-targetWorld[1]);
+    customVerts[idx] = d1 <= d2 ? cand1 : cand2;
+  }
+
+  svg.addEventListener("pointerdown", (e) => {
+    const target = e.target;
+    if (target && target.classList && target.classList.contains("vertex-dot")){
+      dragIdx = parseInt(target.getAttribute("data-idx"),10);
+      svg.setPointerCapture(e.pointerId);
+    } else {
+      isPanning = true;
+      plotMain.classList.add("panning");
+      const rect = svg.getBoundingClientRect();
+      panStartScreen = [ (e.clientX-rect.left)*(MAIN_W/rect.width), (e.clientY-rect.top)*(MAIN_H/rect.height) ];
+      panStartWorld = panWorld.slice();
+      svg.setPointerCapture(e.pointerId);
+    }
+  });
+  svg.addEventListener("pointermove", (e) => {
+    const rect = svg.getBoundingClientRect();
+    const sx = (e.clientX-rect.left)*(MAIN_W/rect.width);
+    const sy = (e.clientY-rect.top)*(MAIN_H/rect.height);
+    if (dragIdx !== null){
+      const w = screenToWorld(sx,sy);
+      dragVertexTo(dragIdx, w);
+      renderPlot();
+      updateResultsDisplay();
+    } else if (isPanning){
+      const wStart = screenToWorldAt(panStartScreen, panStartWorld);
+      const wNow = screenToWorldAt([sx,sy], panStartWorld);
+      panWorld = [ panStartWorld[0] + (wStart[0]-wNow[0]), panStartWorld[1] + (wStart[1]-wNow[1]) ];
+      renderPlot();
+    }
+  });
+  function screenToWorldAt(screenPt, panOverride){
+    const s = currentScale();
+    const cx = baseCenter[0] + panOverride[0];
+    const cy = baseCenter[1] + panOverride[1];
+    return [ (screenPt[0]-MAIN_W/2)/s + cx, -(screenPt[1]-MAIN_H/2)/s + cy ];
+  }
+  function endDrag(e){
+    dragIdx = null;
+    if (isPanning){
+      isPanning = false;
+      plotMain.classList.remove("panning");
+    }
+  }
+  svg.addEventListener("pointerup", endDrag);
+  svg.addEventListener("pointercancel", endDrag);
+  svg.addEventListener("pointerleave", (e) => { if (e.buttons===0) endDrag(e); });
+
+  // ---- zoom controls ----
+  function setZoom(z){
+    zoomLevel = Math.max(1, Math.min(5, z));
+    updateZoomUI();
+    renderPlot();
+  }
+  zoomOutBtn.addEventListener("click", () => setZoom(zoomLevel + 0.5));
+  zoomInBtn.addEventListener("click", () => setZoom(zoomLevel - 0.5));
+  $("resetViewBtn").addEventListener("click", () => { zoomLevel=1; panWorld=[0,0]; updateZoomUI(); renderPlot(); });
+  $("resetShapeBtn").addEventListener("click", () => { recompute(); });
+
+  plotMain.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const dz = e.deltaY > 0 ? 0.3 : -0.3;
+    setZoom(zoomLevel + dz);
+  }, {passive:false});
+
+  // ---- events ----
+  numSidesEl.addEventListener("input", () => {
+    let n = parseInt(numSidesEl.value,10);
+    if (isNaN(n)) return;
+    n = Math.max(3, Math.min(10, n));
+    numSidesEl.value = n;
+    state.n = n;
+    buildSideRows();
+    buildAngleRows();
+    recompute();
+  });
+
+  lengthUnitEl.addEventListener("change", () => {
+    state.lengthUnit = lengthUnitEl.value;
+    buildSideRows();
+    buildAngleRows();
+    recompute();
+  });
+
+  perimUnitEl.addEventListener("change", updateResultsDisplay);
+  areaUnitEl.addEventListener("change", updateResultsDisplay);
+
+  angleModeToggle.addEventListener("change", () => {
+    state.angleMode = angleModeToggle.checked;
+    $("angleHint").textContent = state.angleMode
+      ? "Fill in an interior angle wherever you know it — that corner will use the angle instead of the switch. Leave a corner's angle blank to fall back to its switch."
+      : "Toggle a corner's switch on if the boundary turns into the plot there (like the inner corner of an \"L\"). Leave off for an ordinary outward corner.";
+    buildSideRows();
+    buildAngleRows();
+    recompute();
+  });
+
+  $("resetBtn").addEventListener("click", () => {
+    state = {
+      n: 6,
+      lengthUnit: "m",
+      angleMode: false,
+      sides: [
+        {length:10, concave:false, angle:null},
+        {length:4,  concave:false, angle:null},
+        {length:6,  concave:true,  angle:null},
+        {length:4,  concave:false, angle:null},
+        {length:4,  concave:false, angle:null},
+        {length:8,  concave:false, angle:null},
+      ]
+    };
+    numSidesEl.value = 6;
+    lengthUnitEl.value = "m";
+    angleModeToggle.checked = false;
+    $("angleHint").textContent = "Toggle a corner's switch on if the boundary turns into the plot there (like the inner corner of an \"L\"). Leave off for an ordinary outward corner.";
+    buildSideRows();
+    buildAngleRows();
+    recompute();
+  });
+
+  // ---- init ----
+  buildSideRows();
+  buildAngleRows();
+  recompute();
+})();
+</script>
+</body>
+</html>
