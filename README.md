@@ -2,7 +2,7 @@
 
 A single-page, browser-based tool for sketching an irregular land plot from its side lengths (and, optionally, its corner angles) and instantly seeing the resulting shape, perimeter, and area. Built as one self-contained HTML file — no build step, no dependencies, no backend.
 
-**[Live Demo](#deployment)** · Just open `plot-area-calculator.html` in any modern browser.
+**[Live Demo](https://ivan-syless.github.io/Plot-Area-Calculator/)** · Or open `plot-area-calculator.html` locally in any modern browser.
 
 ## Features
 
@@ -46,9 +46,13 @@ Given the side lengths and any concave/angle constraints, the app treats each co
 
 ## Deployment
 
-This is a static, single-file site, so it works out of the box with **GitHub Pages**:
+Already live via **GitHub Pages** at [ivan-syless.github.io/Plot-Area-Calculator](https://ivan-syless.github.io/Plot-Area-Calculator/).
 
-1. Push this repository to GitHub.
+To update it, just commit changes to `plot-area-calculator.html` on the branch/folder configured under **Settings → Pages** — GitHub redeploys automatically on push.
+
+If you're setting this up fresh on a new repo:
+
+1. Push the repository to GitHub.
 2. Go to **Settings → Pages**.
 3. Under "Build and deployment," set **Source** to "Deploy from a branch," pick your default branch and the `/ (root)` folder.
 4. Save — GitHub will publish the site at `https://<your-username>.github.io/<repo-name>/plot-area-calculator.html`.
